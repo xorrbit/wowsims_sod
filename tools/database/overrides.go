@@ -110,6 +110,22 @@ var ItemOverrides = []*proto.UIItem{
 		Phase:           7,
 		Quality:         4,
 	},
+
+	// https://www.wowhead.com/classic-ptr/item=240064/waywatcher-cowl
+	// Placeholder to test the effect.
+	// TODO: Remove after it's added normally.
+	{
+		Id:            240064,
+		Name:          "Waywatcher Cowl (PH)",
+		Icon:          "inv_helmet_15",
+		Type:          proto.ItemType_ItemTypeHead,
+		ArmorType:     proto.ArmorType_ArmorTypeLeather,
+		RequiresLevel: 60,
+		Stats:         []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		Ilvl:          94,
+		Phase:         7,
+		Quality:       4,
+	},
 }
 
 // Keep these sorted by item ID.

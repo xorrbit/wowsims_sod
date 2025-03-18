@@ -5,6 +5,7 @@ import (
 
 	"github.com/wowsims/sod/sim/core"
 	"github.com/wowsims/sod/sim/core/proto"
+	"github.com/wowsims/sod/sim/core/stats"
 )
 
 // var ItemSetWaywatcherEclipse = core.NewItemSet(core.ItemSet{
@@ -157,23 +158,30 @@ func (druid *Druid) applyScarletEnclaveBalance6PBonus() {
 	}))
 }
 
-// var ItemSetWaywatcherFerocity = core.NewItemSet(core.ItemSet{
-// 	Name: "Waywatcher Ferocity",
-// 	Bonuses: map[int32]core.ApplyEffect{
-// 		2: func(agent core.Agent) {
-// 			druid := agent.(DruidAgent).GetDruid()
-// 			druid.applyScarletEnclaveFeral2PBonus()
-// 		},
-// 		4: func(agent core.Agent) {
-// 			druid := agent.(DruidAgent).GetDruid()
-// 			druid.applyScarletEnclaveFeral4PBonus()
-// 		},
-// 		6: func(agent core.Agent) {
-// 			druid := agent.(DruidAgent).GetDruid()
-// 			druid.applyScarletEnclaveFeral6PBonus()
-// 		},
-// 	},
-// })
+var ItemSetWaywatcherFerocity = core.NewItemSet(core.ItemSet{
+	Name: "Waywatcher Ferocity",
+	Bonuses: map[int32]core.ApplyEffect{
+		// for testing
+		1: func(agent core.Agent) {
+			druid := agent.(DruidAgent).GetDruid()
+			druid.applyScarletEnclaveFeral2PBonus()
+			druid.applyScarletEnclaveFeral4PBonus()
+			druid.applyScarletEnclaveFeral6PBonus()
+		},
+		2: func(agent core.Agent) {
+			druid := agent.(DruidAgent).GetDruid()
+			druid.applyScarletEnclaveFeral2PBonus()
+		},
+		4: func(agent core.Agent) {
+			druid := agent.(DruidAgent).GetDruid()
+			druid.applyScarletEnclaveFeral4PBonus()
+		},
+		6: func(agent core.Agent) {
+			druid := agent.(DruidAgent).GetDruid()
+			druid.applyScarletEnclaveFeral6PBonus()
+		},
+	},
+})
 
 // You gain 2 Energy each time Rake or Rip deals periodic damage.
 func (druid *Druid) applyScarletEnclaveFeral2PBonus() {
@@ -182,9 +190,19 @@ func (druid *Druid) applyScarletEnclaveFeral2PBonus() {
 		return
 	}
 
-	druid.RegisterAura(core.Aura{
+	actionID := core.ActionID{SpellID: 1226113}
+	energyMetrics := druid.NewEnergyMetrics(actionID)
+
+	core.MakePermanent(druid.RegisterAura(core.Aura{
 		Label: label,
-	})
+		OnPeriodicDamageDealt: func(aura *core.Aura, sim *core.Simulation, spell *core.Spell, result *core.SpellResult) {
+			if spell.Matches(ClassSpellMask_DruidRake) || spell.Matches(ClassSpellMask_DruidRip) {
+				if druid.HasEnergyBar() {
+					druid.AddEnergy(sim, 2, energyMetrics)
+				}
+			}
+		},
+	}))
 }
 
 // Multiplies the damage bonus from Tiger's Fury by 2.
@@ -194,9 +212,19 @@ func (druid *Druid) applyScarletEnclaveFeral4PBonus() {
 		return
 	}
 
-	core.MakePermanent(druid.RegisterAura(core.Aura{
-		Label: label,
-	}))
+	druid.RegisterAura(core.Aura{
+		ActionID: core.ActionID{SpellID: 1226116}, // Tracking in APL
+		Label:    label,
+		OnInit: func(aura *core.Aura, sim *core.Simulation) {
+			if druid.TigersFury.IsSpellAction(417045) {
+				// King of the Jungle - Increases damage done by 15%
+				druid.TigersFuryAura.AttachMultiplicativePseudoStatBuff(&druid.PseudoStats.SchoolDamageDealtMultiplier[stats.SchoolIndexPhysical], 1.15)
+			} else if druid.TigersFury.IsSpellAction(9846) {
+				// Tiger's Fury Rank 4 - Increases damage done by 40
+				druid.TigersFuryAura.AttachAdditivePseudoStatBuff(&druid.PseudoStats.BonusPhysicalDamage, 40)
+			}
+		},
+	})
 }
 
 // Your Finishing Moves have a 20% chance per combo point spent to trigger Clearcasting and extend the duration of your active Tiger's Fury by 6 sec.
@@ -207,8 +235,19 @@ func (druid *Druid) applyScarletEnclaveFeral6PBonus() {
 	}
 
 	core.MakePermanent(druid.RegisterAura(core.Aura{
-		Label: label,
+		ActionID: core.ActionID{SpellID: 1226119}, // Tracking in APL
+		Label:    label,
 	}))
+
+	druid.OnComboPointsSpent(func(sim *core.Simulation, spell *core.Spell, comboPoints int32) {
+		if sim.Proc(.2*float64(comboPoints), label) {
+			druid.ClearcastingAura.Activate(sim)
+			if druid.TigersFuryAura.IsActive() {
+				newExpires := druid.TigersFuryAura.ExpiresAt() + (time.Second * 6.0)
+				druid.TigersFuryAura.UpdateExpires(sim, newExpires)
+			}
+		}
+	})
 }
 
 // var ItemSetWaywatcherGuardian = core.NewItemSet(core.ItemSet{
